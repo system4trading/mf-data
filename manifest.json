@@ -1,7 +1,6 @@
-
 {
-  "name": "Indian Mutual Fund Analyzer",
-  "short_name": "MF Analyzer",
+  "name": "Indian Mutual Fund Analytics",
+  "short_name": "MF Analytics",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
