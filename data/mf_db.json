@@ -1,1 +1,16 @@
-
+[
+  {
+    "name": "HDFC Balanced Advantage Fund - Growth",
+    "amc": "HDFC",
+    "amfi_code": "120503",
+    "yahoo_symbol": "HDFCBALADV.NS",
+    "category": "Hybrid"
+  },
+  {
+    "name": "ICICI Prudential Bluechip Fund - Growth",
+    "amc": "ICICI",
+    "amfi_code": "120586",
+    "yahoo_symbol": "ICICIBLUECHIP.NS",
+    "category": "Equity"
+  }
+]
