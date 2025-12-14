@@ -1,4 +1,4 @@
-const AMFI = "https://raw.githubusercontent.com/YOURNAME/mf-data-cache/main/amfi/";
+const AMFI = "https://raw.githubusercontent.com/system4trading/mf-analytics/tree/main/mf-data-cache/amfi/";
 const NIFTY = "https://raw.githubusercontent.com/YOURNAME/mf-data-cache/main/nifty/nifty50.json";
 
 export async function loadMF(code){
