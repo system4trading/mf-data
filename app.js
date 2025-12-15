@@ -2,7 +2,7 @@ import { analyzeMF } from "./analytics.js";
 import { scoreMF } from "./scoring.js";
 
 const MASTER =
- "https://raw.githubusercontent.com/YOURNAME/mf-data-cache/main/mf_master.json";
+ "https://raw.githubusercontent.com/system4trading/mf-data-cache/main/mf_master.json";
 
 let mfdb = [];
 
