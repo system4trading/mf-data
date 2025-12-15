@@ -1,7 +1,6 @@
 {
-  "name": "MF Analytics",
-  "short_name": "MF Analytics",
-  "start_url": "/",
+  "name": "Hybrid MF Analyzer",
+  "short_name": "MF Analyzer",
   "display": "standalone",
-  "icons": [{ "src": "assets/logo.png", "sizes": "192x192" }]
+  "start_url": "/"
 }
