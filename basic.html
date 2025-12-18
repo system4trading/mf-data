@@ -1,265 +1,629 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 <head>
-<title>Mutual Fund vs Nifty50 Analyzer</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mutual Fund Analyzer — Nifty50 Comparison</title>
 
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- html2canvas + jsPDF for PDF export -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
 <style>
-    body {
-        font-family: Arial;
-        max-width: 1100px;
-        margin: auto;
-        padding: 20px;
-        line-height: 1.6;
-    }
-    input, select, button {
-        padding: 10px;
-        margin-top: 5px;
-        font-size: 16px;
-        width: 100%;
-    }
-    button {
-        background: #0066ff;
-        color: white;
-        border: none;
-        cursor: pointer;
-    }
-    button:hover { background: #0049b3; }
-
-    .card {
-        background: #f7f7f7;
-        padding: 20px;
-        margin: 20px 0;
-        border-radius: 10px;
-    }
-    pre {
-        background: #222; color: #0f0; padding: 15px;
-        overflow-x: auto;
-    }
-    canvas { background: #fff; margin: 20px 0; }
+  :root{
+    --bg:#ffffff; --card:#f7f8fb; --text:#111; --muted:#555; --accent:#1766ff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0f14; --card:#0f1720; --text:#e6eef8; --muted:#9fb0c8; --accent:#2fa1ff; }
+    html,body { background: var(--bg); color:var(--text); }
+  }
+  html,body{ background:var(--bg); color:var(--text); font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; padding:0; }
+  .container{ max-width:1150px; margin:18px auto; padding:18px; }
+  h1{ margin:0 0 10px 0; font-size:20px; }
+  .row{ display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  label{ display:block; font-size:13px; margin-bottom:6px; color:var(--muted); }
+  input, select, button, textarea { padding:10px; font-size:14px; border-radius:8px; border:1px solid #dfe6f2; background:transparent; color:var(--text); }
+  button{ background:var(--accent); color:white; border:none; cursor:pointer; }
+  button.secondary{ background:#0a8; }
+  .card{ background:var(--card); border-radius:10px; padding:14px; margin-top:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .two { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  pre{ background: rgba(0,0,0,0.05); padding:12px; border-radius:8px; overflow:auto; white-space:pre-wrap; color:var(--text); }
+  canvas{ width:100% !important; display:block; margin-top:12px; background:var(--bg); border-radius:8px; }
+  .muted{ color:var(--muted); font-size:13px; }
+  .search-results{ position:relative; }
+  .results-list{ position:absolute; left:0; right:0; z-index:20; background:var(--card); border:1px solid #dfe6f2; max-height:220px; overflow:auto; border-radius:8px; margin-top:6px; }
+  .results-item{ padding:8px 10px; cursor:pointer; }
+  .results-item:hover{ background:#e8f1ff; }
+  @media (max-width:880px){ .two{ grid-template-columns: 1fr; } .row{ flex-direction:column; align-items:stretch; } }
 </style>
 </head>
-
 <body>
+  <div class="container">
+    <h1>Mutual Fund Analyzer — Compare to Nifty 50</h1>
 
-<h1>📈 Mutual Fund Analysis vs Nifty50 (1Y / 3Y / 5Y)</h1>
+    <div class="card">
+      <div class="row">
+        <div style="flex:1; min-width:260px">
+          <label>Mutual Fund (symbol or scheme name)</label>
+          <div class="search-results">
+            <input id="mfInput" placeholder="e.g. ICICIPRULI.NS or 'HDFC Balanced Advantage'">
+            <div id="resultsList" class="results-list" style="display:none"></div>
+          </div>
+        </div>
 
-<div class="card">
-    <label>Mutual Fund Yahoo Finance Symbol  
-      (example: HDFCMF.NS, ICICIPRULI.NS)</label>
-    <input id="mf" placeholder="ICICIPRULI.NS">
+        <div style="width:140px">
+          <label>Period</label>
+          <select id="period"><option value="1y">1 Year</option><option value="3y">3 Years</option><option value="5y">5 Years</option></select>
+        </div>
 
-    <label>Time Period</label>
-    <select id="period">
-        <option value="1y">1 Year</option>
-        <option value="3y">3 Years</option>
-        <option value="5y">5 Years</option>
-    </select>
+        <div style="width:160px">
+          <label>Rolling window</label>
+          <select id="rollingWindow"><option value="252">1y (252)</option><option value="126">6m (126)</option><option value="63">3m (63)</option></select>
+        </div>
 
-    <button onclick="runAnalysis()">Run Analysis</button>
-</div>
+        <div style="width:150px">
+          <label>Risk-free rate %</label>
+          <input id="rf" value="6">
+        </div>
 
-<h2>Results</h2>
-<pre id="results">—</pre>
+        <div style="width:160px">
+          <label>&nbsp;</label>
+          <button id="searchBtn">Search</button>
+          <button id="runBtn" style="margin-left:8px">Run Analysis</button>
+        </div>
+      </div>
 
-<h2>NAV vs Nifty50 Chart</h2>
-<canvas id="chart" height="120"></canvas>
+      <div class="row" style="margin-top:10px">
+        <div style="min-width:220px">
+          <label>Expense ratio (annual %, optional)</label>
+          <input id="expenseRatio" placeholder="e.g. 1.2">
+        </div>
+        <div style="min-width:180px">
+          <label>Avg P/E (if known)</label>
+          <input id="avgPE" placeholder="auto if available">
+        </div>
+        <div style="min-width:180px">
+          <label>Avg Dividend Yield % (if known)</label>
+          <input id="avgYield" placeholder="auto if available">
+        </div>
+
+        <div style="margin-left:auto">
+          <label>&nbsp;</label>
+          <button id="exportCSV">Export CSV</button>
+          <button id="exportPDF" style="margin-left:8px">Export PDF</button>
+          <button id="shareBtn" style="margin-left:8px" class="secondary">Share</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="two">
+      <div class="card">
+        <h3 style="margin:6px 0">Key Metrics</h3>
+        <pre id="metrics">No analysis yet — enter a symbol or name and click Run Analysis.</pre>
+        <div class="muted" style="margin-top:8px">Avg P/E and Dividend Yield will attempt automatic fetch; if not available you can enter them manually above.</div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:6px 0">SIP / Lump-sum & Withdrawal Tools</h3>
+
+        <div style="display:flex; gap:8px; margin-bottom:8px">
+          <input id="sipAmount" placeholder="Monthly SIP (INR)" style="flex:1">
+          <select id="sipYears" style="width:110px"><option>1</option><option selected>3</option><option>5</option><option>10</option><option>15</option></select>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:8px">
+          <input id="sipExpected" placeholder="Expected annual % (optional) - uses fund if blank)" style="flex:1">
+          <button id="calcSIP" style="width:160px">Calc SIP</button>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:8px">
+          <input id="lumpAmount" placeholder="Lump-sum amount (INR)" style="flex:1">
+          <button id="compareLump" style="width:160px" class="secondary">Compare Lump</button>
+        </div>
+
+        <hr style="margin:8px 0">
+
+        <div style="display:flex; gap:8px; margin-bottom:8px">
+          <input id="swPortfolio" placeholder="Portfolio value (INR)" style="flex:1">
+          <select id="swYears" style="width:110px"><option>5</option><option selected>10</option><option>15</option></select>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:8px">
+          <input id="swReturn" placeholder="Expected return % during withdrawal" style="flex:1">
+          <input id="swInflation" placeholder="Inflation %" style="width:110px">
+        </div>
+        <div style="display:flex; gap:8px">
+          <button id="calcSW" style="width:160px">Calc Withdrawal</button>
+          <div id="sipResult" style="flex:1; padding:8px; border:1px dashed #dfe6f2; border-radius:8px; min-height:64px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:6px 0">Charts</h3>
+      <canvas id="priceChart" height="200"></canvas>
+      <canvas id="rollingChart" height="160"></canvas>
+      <canvas id="drawdownChart" height="120"></canvas>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3 style="margin:6px 0">Raw / debug</h3>
+      <textarea id="raw" style="width:100%;height:120px;border-radius:8px;padding:10px" readonly></textarea>
+    </div>
+  </div>
 
 <script>
-// ===============================================
-// FETCH Yahoo Finance (CORS-friendly CSV API)
-// ===============================================
-async function fetchYahoo(symbol, range) {
-    const url =
-      `https://query1.finance.yahoo.com/v7/finance/download/${symbol}` +
-      `?range=${range}&interval=1d&events=history&includeAdjustedClose=true`;
+/* --------------------------
+ Utilities & Yahoo endpoints
+---------------------------*/
 
-    const csv = await fetch(url).then(r => r.text());
-    return parseCSV(csv);
+/** Convert date to UNIX timestamp (seconds) */
+function toUnix(dt) { return Math.floor(dt.getTime()/1000); }
+
+/** Yahoo search: returns list of matches [{symbol,shortname,exchange}] */
+async function yahooSearch(q){
+  const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Search failed');
+  const j = await res.json();
+  const quotes = j?.quotes || [];
+  return quotes.map(x=>({ symbol: x.symbol, name: x.shortname || x.longname || x.displayName || x.name, exch: x.exchange || x.exchangeTimezoneName || '' }));
 }
 
-function parseCSV(csv) {
-    const rows = csv.trim().split("\n").slice(1);
-    return rows.map(r => {
-        const cols = r.split(",");
-        return {
-            date: cols[0],
-            close: parseFloat(cols[5] || cols[4])
-        };
-    }).filter(x => !isNaN(x.close));
+/** Yahoo historical CSV using period1/period2 — more reliable */
+async function yahooHistoryCSV(symbol, range){
+  // range e.g. "1y","3y","5y"
+  const now = new Date();
+  let from = new Date();
+  if (range === '1y') from.setFullYear(now.getFullYear()-1);
+  else if (range === '3y') from.setFullYear(now.getFullYear()-3);
+  else if (range === '5y') from.setFullYear(now.getFullYear()-5);
+  // ensure inclusive day
+  const period1 = toUnix(new Date(from.getFullYear(), from.getMonth(), from.getDate()));
+  const period2 = toUnix(new Date(now.getFullYear(), now.getMonth(), now.getDate()+1));
+  const url = `https://query1.finance.yahoo.com/v7/finance/download/${encodeURIComponent(symbol)}?period1=${period1}&period2=${period2}&interval=1d&events=history&includeAdjustedClose=true`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Historical fetch failed (${r.status}) for ${symbol}`);
+  const txt = await r.text();
+  return parseCSV(txt);
 }
 
-// ===============================================
-// Math Functions
-// ===============================================
-const mean = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
-const stdev = arr => {
-    const m = mean(arr);
-    return Math.sqrt(mean(arr.map(x => (x - m)**2)));
-};
-
-function dailyReturns(data) {
-    const out = [];
-    for (let i = 1; i < data.length; i++) {
-        out.push((data[i].close - data[i-1].close) / data[i-1].close);
-    }
-    return out;
+/** Parse Yahoo CSV to [{date,close}] */
+function parseCSV(csv){
+  const lines = csv.trim().split('\n').slice(1);
+  const out = [];
+  for (const line of lines){
+    const cols = line.split(',');
+    const date = cols[0];
+    const adjClose = parseFloat(cols[5] || cols[4]);
+    if (!isNaN(adjClose)) out.push({ date, close: adjClose });
+  }
+  return out;
 }
 
-// ===============================================
-// Regression (R²), Covariance, Correlation
-// ===============================================
-function covariance(a, b) {
-    const ma = mean(a), mb = mean(b);
-    return mean(a.map((x,i)=> (x-ma)*(b[i]-mb)));
-}
-function correlation(a, b) {
-    return covariance(a,b) / (stdev(a)*stdev(b));
-}
-function rSquared(a, b) {
-    return correlation(a,b) ** 2;
+/** Try fetch basic fundamentals via search/autocomplete (public) */
+async function yahooSummaryBasic(symbol){
+  try {
+    const sUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}`;
+    const r = await fetch(sUrl);
+    if (!r.ok) return { pe: null, dividendYield: null };
+    const j = await r.json();
+    const best = (j?.quotes || [])[0] || null;
+    return { pe: best?.trailingPE || null, dividendYield: best?.dividendYield ? best.dividendYield * 100 : null };
+  } catch(e){ return { pe: null, dividendYield: null }; }
 }
 
-// ===============================================
-// MAIN ANALYSIS
-// ===============================================
-async function runAnalysis() {
-    const mf = document.getElementById("mf").value.trim();
-    const period = document.getElementById("period").value;
-    const output = document.getElementById("results");
+/* --------------------------
+ Statistical helpers
+---------------------------*/
+const mean = arr => arr.reduce((s,x)=>s+x,0)/arr.length;
+const variance = arr => { const m = mean(arr); return arr.reduce((s,x)=>s+(x-m)*(x-m),0)/arr.length; };
+const stdev = arr => Math.sqrt(variance(arr));
+function dailyReturns(series){ const out=[]; for (let i=1;i<series.length;i++){ out.push((series[i].close - series[i-1].close)/series[i-1].close); } return out; }
+function covariance(a,b){ const n = Math.min(a.length,b.length); const as = a.slice(a.length-n), bs = b.slice(b.length-n); const ma = mean(as), mb = mean(bs); let s=0; for (let i=0;i<n;i++) s += (as[i]-ma)*(bs[i]-mb); return s/n;}
+function correlation(a,b){ const den = stdev(a)*stdev(b); return den === 0 ? 0 : covariance(a,b)/den; }
+function regressionRSquared(x,y){ const n = Math.min(x.length,y.length); const xs = x.slice(x.length-n), ys = y.slice(y.length-n); const xm = mean(xs), ym = mean(ys); let num=0, den=0; for (let i=0;i<n;i++){ num += (xs[i]-xm)*(ys[i]-ym); den += (xs[i]-xm)*(xs[i]-xm); } const slope = den===0?0:num/den; const intercept = ym - slope*xm; let ssRes=0, ssTot=0; for (let i=0;i<n;i++){ const pred = intercept + slope*xs[i]; ssRes += (ys[i]-pred)*(ys[i]-pred); ssTot += (ys[i]-ym)*(ys[i]-ym); } const r2 = ssTot === 0 ? 0 : Math.max(0,1 - ssRes/ssTot); return { slope, intercept, r2 }; }
 
-    if (!mf) return alert("Enter mutual fund symbol");
+/* Rolling returns (annualized) */
+function rollingReturns(series, windowDays){
+  const out=[];
+  for (let i=windowDays;i<series.length;i++){
+    const start = series[i-windowDays].close; const end = series[i].close;
+    if (start>0) out.push({ date: series[i].date, value: Math.pow(end/start, 252/windowDays) - 1 });
+    else out.push({ date: series[i].date, value: null });
+  }
+  return out;
+}
 
-    output.textContent = "Fetching latest data...";
+/* Rolling stats from returns array (returnsWithDate: [{date,value}]) */
+function computeRollingStats(returnsWithDate, windowDays, rfAnnual){
+  const out = [];
+  for (let i=windowDays;i<returnsWithDate.length;i++){
+    const slice = returnsWithDate.slice(i-windowDays, i).map(x=>x.value);
+    const m = mean(slice); const sd = stdev(slice);
+    const annRet = m*252; const annVol = sd*Math.sqrt(252); const sharpe = annVol===0 ? 0 : (annRet - rfAnnual)/annVol;
+    out.push({ date: returnsWithDate[i].date, annRet, annVol, sharpe });
+  }
+  return out;
+}
 
-    const rangeMap = { "1y": "1y", "3y": "3y", "5y": "5y" };
-    const range = rangeMap[period];
+/* Drawdown */
+function drawdownSeries(series){
+  let peak = -Infinity; const out=[]; let maxDD = 0;
+  for (let i=0;i<series.length;i++){ const p = series[i].close; if (p>peak) peak=p; const dd=(peak - p)/peak; if (dd>maxDD) maxDD = dd; out.push({date:series[i].date, dd}); }
+  return { series: out, maxDrawdown: maxDD };
+}
 
+/* SIP / Lump / SWP helpers */
+function sipFutureValue(pmt, annualRate, years){
+  const months = Math.round(years*12); const i = annualRate/12; if (Math.abs(i) < 1e-12) return { fv: pmt*months, invested: pmt*months, months }; const fv = pmt * ((Math.pow(1+i, months) - 1) / i); return { fv, invested: pmt*months, months };
+}
+function lumpFuture(principal, annualRate, years){ return principal * Math.pow(1+annualRate, years); }
+function withdrawalAnn(portfolio, years, annualReturn, inflation){ const r = annualReturn - inflation; const n = years; if (Math.abs(r) < 1e-12) return portfolio/n; return (portfolio * r) / (1 - Math.pow(1+r, -n)); }
+
+/* --------------------------
+ UI elements & charts
+---------------------------*/
+const mfInput = document.getElementById('mfInput');
+const resultsList = document.getElementById('resultsList');
+const runBtn = document.getElementById('runBtn');
+const searchBtn = document.getElementById('searchBtn');
+const metricsEl = document.getElementById('metrics');
+const rawEl = document.getElementById('raw');
+
+let lastSnapshot = null;
+let priceChart=null, rollingChart=null, drawdownChart=null;
+
+/* Render charts */
+function renderPriceChart(dates, fundVals, idxVals){
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  if (priceChart) priceChart.destroy();
+  priceChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:dates, datasets:[
+      { label:'Fund NAV', data: fundVals, borderWidth:1.5, pointRadius:0 },
+      { label:'Nifty50', data: idxVals, borderWidth:1.5, pointRadius:0 }
+    ]},
+    options:{ maintainAspectRatio:false, interaction:{mode:'index',intersect:false} }
+  });
+}
+function renderRollingChart(dates, regReturns, vol, sharpe){
+  const ctx = document.getElementById('rollingChart').getContext('2d');
+  if (rollingChart) rollingChart.destroy();
+  rollingChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:dates, datasets:[
+      { label:'Rolling Return (ann %)', data: regReturns.map(v=>v*100), yAxisID:'y1', borderWidth:1.2, pointRadius:0 },
+      { label:'Rolling Vol (ann %)', data: vol.map(v=>v*100), yAxisID:'y1', borderWidth:1.2, pointRadius:0, borderDash:[6,4] },
+      { label:'Rolling Sharpe', data: sharpe, yAxisID:'y2', borderWidth:1.2, pointRadius:0, borderColor:'#ff6600' }
+    ]},
+    options:{ maintainAspectRatio:false, scales:{ y1:{ position:'left', ticks:{ callback: v => v + '%' }, title:{display:true,text:'%'} }, y2:{ position:'right', title:{display:true,text:'Sharpe'} } } }
+  });
+}
+function renderDrawdown(dates, dd){
+  const ctx = document.getElementById('drawdownChart').getContext('2d');
+  if (drawdownChart) drawdownChart.destroy();
+  drawdownChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:dates, datasets:[ { label:'Drawdown (%)', data: dd.map(v=>v*100), borderWidth:1.2, pointRadius:0, backgroundColor:'rgba(255,0,0,0.06)' } ]},
+    options:{ maintainAspectRatio:false }
+  });
+}
+
+/* --------------------------
+ Symbol search flow
+---------------------------*/
+let searchTimeout = null;
+mfInput.addEventListener('input', ()=>{
+  const q = mfInput.value.trim();
+  if (!q) { resultsList.style.display='none'; resultsList.innerHTML=''; return; }
+  // debounce
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(async ()=>{
     try {
-        const [mfData, niftyData] = await Promise.all([
-            fetchYahoo(mf, range),
-            fetchYahoo("^NSEI", range)
-        ]);
-
-        // Align lengths
-        const len = Math.min(mfData.length, niftyData.length);
-        const mfSlice = mfData.slice(-len);
-        const niSlice = niftyData.slice(-len);
-
-        const mfRet = dailyReturns(mfSlice);
-        const niRet = dailyReturns(niSlice);
-
-        const n = mfRet.length;
-
-        // Stats
-        const ann = 252;
-        const meanMF = mean(mfRet), meanNI = mean(niRet);
-        const sdMF = stdev(mfRet), sdNI = stdev(niRet);
-
-        const annualReturnMF = meanMF * ann;
-        const annualReturnNI = meanNI * ann;
-        const annualSDMF = sdMF * Math.sqrt(ann);
-
-        const cov = covariance(mfRet, niRet);
-        const beta = cov / (sdNI*sdNI);
-        const alpha = annualReturnMF - beta * annualReturnNI;
-
-        const corr = correlation(mfRet, niRet);
-        const r2 = rSquared(mfRet, niRet);
-
-        const systematicRisk = beta * sdNI;
-        const unsystematicRisk = sdMF - systematicRisk;
-
-        const trackingError = stdev(mfRet.map((x,i)=> x - niRet[i])) * Math.sqrt(ann);
-
-        // Sharpe (risk-free assumed 6% annual)
-        const rf = 0.06;
-        const sharpe = (annualReturnMF - rf) / annualSDMF;
-
-        const treynor = (annualReturnMF - rf) / beta;
-
-        const capmReturn = rf + beta * (annualReturnNI - rf);
-
-        const excessReturn = annualReturnMF - annualReturnNI;
-
-        const downsideRisk = Math.sqrt(
-            mean(mfRet.filter(r => r < 0).map(r => r*r))
-        ) * Math.sqrt(ann);
-
-        output.textContent =
-`============================================
- MUTUAL FUND ANALYSIS (${period.toUpperCase()})
-============================================
-
-Annual Return (MF):          ${(annualReturnMF*100).toFixed(2)}%
-Annual Return (Nifty50):     ${(annualReturnNI*100).toFixed(2)}%
-
-Standard Deviation:          ${(sdMF*100).toFixed(2)}%
-Annualized Std Dev:          ${(annualSDMF*100).toFixed(2)}%
-
-Beta:                         ${beta.toFixed(3)}
-Alpha:                        ${(alpha*100).toFixed(2)}%
-Correlation:                  ${corr.toFixed(3)}
-R-Squared:                    ${r2.toFixed(3)}
-
-Covariance:                   ${cov.toFixed(6)}
-Systematic Risk:              ${systematicRisk.toFixed(4)}
-Unsystematic Risk:            ${unsystematicRisk.toFixed(4)}
-
-Sharpe Ratio:                 ${sharpe.toFixed(3)}
-Treynor Ratio:                ${treynor.toFixed(3)}
-Tracking Error:               ${(trackingError*100).toFixed(2)}%
-
-CAPM Expected Annual Return:  ${(capmReturn*100).toFixed(2)}%
-Excess Return vs Nifty:       ${(excessReturn*100).toFixed(2)}%
-
-Downside Risk:                ${(downsideRisk*100).toFixed(2)}%
-Return per Unit Risk:         ${(annualReturnMF/annualSDMF).toFixed(3)}
-============================================
-`;
-
-        drawChart(mfSlice, niSlice);
-    } catch (e) {
-        output.textContent = "Error: " + e;
+      const items = await yahooSearch(q);
+      if (!items || items.length === 0){ resultsList.style.display='none'; resultsList.innerHTML=''; return; }
+      resultsList.innerHTML = items.map(it => `<div class="results-item" data-symbol="${it.symbol}"><strong>${it.symbol}</strong> — ${it.name || ''} <span style="color:var(--muted);font-size:12px">(${it.exch||''})</span></div>`).join('');
+      resultsList.style.display='block';
+      // attach click events
+      for (const child of resultsList.querySelectorAll('.results-item')){
+        child.onclick = () => { mfInput.value = child.dataset.symbol; resultsList.style.display = 'none'; };
+      }
+    } catch(err){
+      console.warn('Search error', err);
+      resultsList.style.display='none';
     }
+  }, 350);
+});
+
+/* Also explicit Search button */
+searchBtn.addEventListener('click', async ()=>{
+  const q = mfInput.value.trim();
+  if (!q) return alert('Enter name or symbol to search');
+  try {
+    const items = await yahooSearch(q);
+    if (!items || items.length === 0) return alert('No matches found');
+    resultsList.innerHTML = items.map(it => `<div class="results-item" data-symbol="${it.symbol}"><strong>${it.symbol}</strong> — ${it.name || ''} <span style="color:var(--muted);font-size:12px">(${it.exch||''})</span></div>`).join('');
+    resultsList.style.display = 'block';
+    for (const child of resultsList.querySelectorAll('.results-item')){
+      child.onclick = () => { mfInput.value = child.dataset.symbol; resultsList.style.display = 'none'; };
+    }
+  } catch(e){ alert('Search failed: ' + e.message); }
+});
+
+/* --------------------------
+ Main analysis flow
+---------------------------*/
+runBtn.addEventListener('click', async ()=>{
+  try {
+    metricsEl.textContent = 'Fetching and computing...';
+    rawEl.value = '';
+    // inputs
+    let symbolOrName = mfInput.value.trim();
+    const period = document.getElementById('period').value;
+    const rollingWindow = parseInt(document.getElementById('rollingWindow').value,10);
+    const rf = (parseFloat(document.getElementById('rf').value) || 6) / 100;
+    const expenseRatio = parseFloat(document.getElementById('expenseRatio').value) || null;
+    // if name-like, try to search
+    if (symbolOrName && !symbolOrName.includes('.') && !symbolOrName.startsWith('^') && /[a-zA-Z\s]/.test(symbolOrName) && !/^[A-Z0-9]+$/.test(symbolOrName)){
+      const searchRes = await yahooSearch(symbolOrName);
+      if (searchRes && searchRes.length>0) symbolOrName = searchRes[0].symbol;
+    }
+    if (!symbolOrName) return alert('Enter symbol or name first');
+
+    // fetch history
+    const mfSeries = await yahooHistoryCSV(symbolOrName, period);
+    const idxSeries = await yahooHistoryCSV('^NSEI', period);
+
+    if (mfSeries.length < 30) throw new Error('Insufficient MF history');
+    if (idxSeries.length < 30) throw new Error('Insufficient index history');
+
+    // align by date intersection
+    const idxMap = new Map(idxSeries.map(d=>[d.date, d.close]));
+    const common = mfSeries.filter(d=> idxMap.has(d.date));
+    const alignedIdx = common.map(d => ({ date: d.date, close: idxMap.get(d.date) }));
+    if (common.length < 30) throw new Error('Too few overlapping trading days between fund and index');
+
+    const fund = common; // oldest->newest
+    const idx = alignedIdx;
+
+    // returns arrays
+    const fundR = dailyReturns(fund);
+    const idxR = dailyReturns(idx);
+    const n = Math.min(fundR.length, idxR.length);
+    const fR = fundR.slice(-n);
+    const iR = idxR.slice(-n);
+
+    // stats
+    const annFactor = 252;
+    const meanF = mean(fR), meanI = mean(iR);
+    const sdF = stdev(fR), sdI = stdev(iR);
+    const annRetF = meanF * annFactor;
+    const annRetI = meanI * annFactor;
+    const annSD_F = sdF * Math.sqrt(annFactor);
+    const totalVar = variance(fR) * annFactor;
+    const cov = covariance(fR, iR);
+    const beta = cov / (variance(iR) || 1e-12);
+    const alpha = annRetF - beta * annRetI;
+    const corr = correlation(fR,iR);
+    const reg = regressionRSquared(iR, fR);
+    const trackingErr = stdev(fR.map((x,i)=> x - iR[i])) * Math.sqrt(annFactor);
+    const sysVar = beta*beta * variance(iR) * annFactor;
+    const unsysVar = totalVar - sysVar;
+    const downs = fR.filter(v=>v<0);
+    const downside = downs.length ? Math.sqrt(mean(downs.map(x=>x*x))) * Math.sqrt(annFactor) : 0;
+    const ddRes = drawdownSeries(fund);
+    const maxDD = ddRes.maxDrawdown;
+    const sharpe = (annRetF - rf) / (annSD_F || 1e-12);
+    const treynor = (annRetF - rf) / (beta || 1e-12);
+    const capmExpected = rf + beta * (annRetI - rf);
+    const excessReturn = annRetF - annRetI;
+    const returnPerUnitRisk = annSD_F? (annRetF / annSD_F) : null;
+
+    // rolling computations
+    const rolling = rollingReturns(fund, rollingWindow);
+    // prepare returnsWithDate for rolling stats
+    const returnsWithDate = [];
+    for (let i=1;i<fund.length;i++) returnsWithDate.push({ date: fund[i].date, value: fundR[i-1] });
+    const rollingStats = computeRollingStats(returnsWithDate, rollingWindow, rf);
+    const rollingDates = rollingStats.map(x=>x.date);
+    const rollingAnn = rollingStats.map(x=>x.annRet);
+    const rollingVol = rollingStats.map(x=>x.annVol);
+    const rollingSharpe = rollingStats.map(x=>x.sharpe);
+
+    // fundamentals (best-effort)
+    const basic = await yahooSummaryBasic(symbolOrName);
+    const avgPEInput = parseFloat(document.getElementById('avgPE').value) || (basic.pe || null);
+    const avgYieldInput = parseFloat(document.getElementById('avgYield').value) || (basic.dividendYield || null);
+
+    // prepare display -> human readable
+    const lines = [];
+    lines.push(`Symbol: ${symbolOrName}`);
+    lines.push(`Period: ${period}  (points used: ${fund.length})`);
+    lines.push('--- Performance ---');
+    lines.push(`Annual Return (Fund): ${(annRetF*100).toFixed(2)}%`);
+    lines.push(`Annual Return (Nifty): ${(annRetI*100).toFixed(2)}%`);
+    lines.push(`Standard Deviation (daily): ${(sdF*100).toFixed(3)}%`);
+    lines.push(`Annualized SD: ${(annSD_F*100).toFixed(2)}%`);
+    lines.push(`Total Variance (ann): ${totalVar.toFixed(8)}`);
+    lines.push(`Return per Unit Risk: ${returnPerUnitRisk!==null?returnPerUnitRisk.toFixed(3):'N/A'}`);
+    lines.push('');
+    lines.push('--- Factor stats ---');
+    lines.push(`Beta: ${beta.toFixed(3)}   Alpha (ann): ${(alpha*100).toFixed(2)}%`);
+    lines.push(`Correlation: ${corr.toFixed(3)}   R²: ${reg.r2.toFixed(3)}`);
+    lines.push(`Covariance (daily): ${cov.toFixed(8)}`);
+    lines.push(`Tracking Error (ann): ${(trackingErr*100).toFixed(2)}%`);
+    lines.push('');
+    lines.push('--- Risk decomposition ---');
+    lines.push(`Total Var (ann): ${totalVar.toFixed(8)}`);
+    lines.push(`Systematic Var (ann): ${sysVar.toFixed(8)}`);
+    lines.push(`Unsystematic Var (ann): ${unsysVar.toFixed(8)}`);
+    lines.push(`Downside Risk (ann): ${(downside*100).toFixed(2)}%`);
+    lines.push(`Max Drawdown: ${(maxDD*100).toFixed(2)}%`);
+    lines.push('');
+    lines.push('--- Ratios & expected ---');
+    lines.push(`Sharpe (rf ${(rf*100).toFixed(2)}%): ${isFinite(sharpe)?sharpe.toFixed(3):'NA'}`);
+    lines.push(`Treynor: ${isFinite(treynor)?treynor.toFixed(3):'NA'}`);
+    lines.push(`CAPM Expected Return: ${(capmExpected*100).toFixed(2)}%`);
+    lines.push(`Excess Return vs Nifty: ${(excessReturn*100).toFixed(2)}%`);
+    lines.push('');
+    lines.push('--- Fundamentals ---');
+    lines.push(`Avg P/E: ${avgPEInput!==null?avgPEInput:'N/A'}`);
+    lines.push(`Avg Dividend Yield %: ${avgYieldInput!==null?avgYieldInput:'N/A'}`);
+    if (expenseRatio) lines.push(`Expense Ratio (input): ${expenseRatio}%`);
+    lines.push('');
+    lines.push(`Timestamp: ${new Date().toLocaleString()}`);
+
+    metricsEl.textContent = lines.join('\\n');
+
+    // raw debug
+    rawEl.value = JSON.stringify({ fund: fund.slice(-8), idx: idx.slice(-8), snapshot: { annRetF, annSD_F, beta, alpha, sharpe } }, null, 2);
+
+    // charts
+    renderPriceChart(fund.map(d=>d.date), fund.map(d=>d.close), idx.map(d=>d.close));
+    renderRollingChart(rollingDates, rollingAnn, rollingVol, rollingSharpe);
+    const ddArr = ddRes.series.map(d=>d.dd);
+    renderDrawdown(ddRes.series.map(d=>d.date), ddArr);
+
+    // store snapshot for export/share
+    lastSnapshot = {
+      symbol: symbolOrName, period, timestamp: new Date().toISOString(),
+      fundPoints: fund.length, annRetF, annRetI, annSD_F, sdF, totalVar, cov, beta, alpha, corr, reg, trackingErr, sysVar, unsysVar, downside, maxDD, sharpe, treynor, capmExpected, excessReturn, returnPerUnitRisk, avgPE: avgPEInput, avgYield: avgYieldInput, expenseRatio: expenseRatio,
+      rolling: { window: rollingWindow, dates: rollingDates, annReturns: rollingAnn, vol: rollingVol, sharpe: rollingSharpe }
+    };
+
+  } catch (err){
+    console.error(err);
+    metricsEl.textContent = 'Error: ' + (err.message || err);
+    rawEl.value = '';
+  }
+});
+
+/* --------------------------
+ Export CSV
+---------------------------*/
+document.getElementById('exportCSV').addEventListener('click', ()=>{
+  if (!lastSnapshot) return alert('Run analysis first');
+  const s = lastSnapshot;
+  let csv = 'Metric,Value\\n';
+  csv += `Symbol,${s.symbol}\\n`;
+  csv += `Period,${s.period}\\n`;
+  csv += `Timestamp,${s.timestamp}\\n`;
+  csv += `Annual Return Fund (%),${(s.annRetF*100).toFixed(4)}\\n`;
+  csv += `Annualized SD (%),${(s.annSD_F*100).toFixed(4)}\\n`;
+  csv += `Beta,${s.beta}\\n`;
+  csv += `Alpha (%),${(s.alpha*100).toFixed(4)}\\n`;
+  csv += `Sharpe,${s.sharpe}\\n`;
+  csv += `Treynor,${s.treynor}\\n`;
+  csv += `R-squared,${s.reg.r2}\\n`;
+  csv += `Avg PE,${s.avgPE}\\n`;
+  csv += `Avg Dividend Yield (%),${s.avgYield}\\n`;
+  csv += '\\nRollingDate,RollingReturn(%),RollingVol(%),RollingSharpe\\n';
+  for (let i=0;i<s.rolling.dates.length;i++){
+    csv += `${s.rolling.dates[i]},${(s.rolling.annReturns[i]*100).toFixed(4)},${(s.rolling.vol[i]*100).toFixed(4)},${s.rolling.sharpe[i].toFixed(4)}\\n`;
+  }
+  const fname = `${s.symbol || 'report'}_metrics.csv`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = fname; document.body.appendChild(link); link.click(); link.remove();
+});
+
+/* --------------------------
+ Export PDF using html2canvas + jsPDF
+---------------------------*/
+document.getElementById('exportPDF').addEventListener('click', async ()=>{
+  if (!lastSnapshot) return alert('Run analysis first');
+  const node = document.querySelector('.container');
+  document.getElementById('exportPDF').disabled = true;
+  try {
+    const canvas = await html2canvas(node, { scale: 2 });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgProps = pdf.getImageProperties(imgData);
+    const imgWidth = pageWidth - 40;
+    const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+    pdf.addImage(imgData, 'PNG', 20, 20, imgWidth, imgHeight);
+    pdf.save(`${lastSnapshot.symbol || 'report'}_report.pdf`);
+  } catch (e){ alert('PDF export failed: '+ e.message); console.error(e); }
+  document.getElementById('exportPDF').disabled = false;
+});
+
+/* --------------------------
+ Share snapshot (encode in URL hash)
+---------------------------*/
+document.getElementById('shareBtn').addEventListener('click', ()=>{
+  if (!lastSnapshot) return alert('Run analysis first');
+  const json = JSON.stringify(lastSnapshot);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  const url = location.origin + location.pathname + '#' + b64;
+  navigator.clipboard?.writeText(url).then(()=> alert('Share link copied to clipboard') ).catch(()=> prompt('Copy link', url));
+});
+
+/* if page opened with share hash, decode and show */
+function loadShared(){
+  if (!location.hash) return;
+  try {
+    const b64 = location.hash.slice(1);
+    const json = decodeURIComponent(escape(atob(b64)));
+    const snap = JSON.parse(json);
+    lastSnapshot = snap;
+    metricsEl.textContent = `Loaded shared snapshot for ${snap.symbol} (${snap.period}), timestamp ${snap.timestamp}. Click Run Analysis to refresh live data.`;
+    rawEl.value = JSON.stringify(snap, null, 2);
+    // try to render rolling if available
+    if (snap.rolling && snap.rolling.dates) renderRollingChart(snap.rolling.dates, snap.rolling.annReturns, snap.rolling.vol, snap.rolling.sharpe);
+  } catch(e){ console.warn('Invalid share hash'); }
 }
+loadShared();
 
-// ===============================================
-// CHART: NAV vs Nifty50
-// ===============================================
-let chart = null;
-function drawChart(mfData, niData) {
-    const ctx = document.getElementById("chart").getContext("2d");
+/* --------------------------
+ SIP / Lump / Withdrawal UI
+---------------------------*/
+document.getElementById('calcSIP').addEventListener('click', ()=>{
+  const pmt = parseFloat(document.getElementById('sipAmount').value);
+  const years = parseFloat(document.getElementById('sipYears').value);
+  if (!pmt || !years) return alert('Enter SIP and years');
+  let expected = parseFloat(document.getElementById('sipExpected').value);
+  if (!expected && lastSnapshot) expected = lastSnapshot.annRetF * 100 || 8;
+  if (!expected) expected = 8;
+  expected = expected / 100;
+  const obj = sipFutureValue(pmt, expected, years);
+  const implied = (function(){ let low=-0.9999, high=5; for (let i=0;i<60;i++){ const mid=(low+high)/2; const rate = mid/12; const val = Math.abs(rate) < 1e-12 ? pmt * (years*12) : pmt * ((Math.pow(1+rate, years*12)-1)/rate); if (val > obj.fv) high = mid; else low = mid; } return (low+high)/2; })();
+  const cagr = Math.pow(obj.fv/obj.invested, 1/years)-1;
+  document.getElementById('sipResult').textContent = `SIP: ₹${pmt.toLocaleString()} /month · ${years}y\nFuture Value: ₹${Math.round(obj.fv).toLocaleString()}\nInvested: ₹${obj.invested.toLocaleString()}\nImplied annual: ${(implied*100).toFixed(2)}% · Estimated CAGR: ${(cagr*100).toFixed(2)}%`;
+});
 
-    const labels = mfData.map(x => x.date);
-    const mfVals = mfData.map(x => x.close);
-    const niVals = niData.map(x => x.close);
+document.getElementById('compareLump').addEventListener('click', ()=>{
+  const pmt = parseFloat(document.getElementById('sipAmount').value);
+  const years = parseFloat(document.getElementById('sipYears').value);
+  const lump = parseFloat(document.getElementById('lumpAmount').value);
+  if (!pmt || !years) return alert('Enter SIP and years');
+  let expected = parseFloat(document.getElementById('sipExpected').value);
+  if (!expected && lastSnapshot) expected = lastSnapshot.annRetF * 100 || 8;
+  if (!expected) expected = 8;
+  expected = expected/100;
+  const sipObj = sipFutureValue(pmt, expected, years);
+  const invested = sipObj.invested;
+  const lumpFV = lump ? lumpFuture(lump, expected, years) : lumpFuture(invested, expected, years);
+  const out = `SIP FV: ₹${Math.round(sipObj.fv).toLocaleString()} (Invested: ₹${invested.toLocaleString()})\nLump FV: ₹${Math.round(lumpFV).toLocaleString()} (Lump: ₹${lump?lump.toLocaleString():invested.toLocaleString()})`;
+  document.getElementById('sipResult').textContent = out;
+});
 
-    if (chart) chart.destroy();
+document.getElementById('calcSW').addEventListener('click', ()=>{
+  const portfolio = parseFloat(document.getElementById('swPortfolio').value);
+  const years = parseFloat(document.getElementById('swYears').value);
+  const exp = parseFloat(document.getElementById('swReturn').value) || (lastSnapshot ? lastSnapshot.annRetF*100 : 6);
+  const inflation = parseFloat(document.getElementById('swInflation').value) || 0;
+  if (!portfolio || !years) return alert('Enter portfolio & years');
+  const r = exp/100; const pay = withdrawalAnn(portfolio, years, r, inflation/100);
+  document.getElementById('sipResult').textContent = `Estimated annual withdrawal: ₹${Math.round(pay).toLocaleString()} (nominal). Real approx: ₹${Math.round(pay*(1-(inflation/100))).toLocaleString()}`;
+});
 
-    chart = new Chart(ctx, {
-        type: "line",
-        data: {
-            labels,
-            datasets: [
-                {
-                    label: "Mutual Fund NAV",
-                    data: mfVals,
-                    borderWidth: 2
-                },
-                {
-                    label: "Nifty50",
-                    data: niVals,
-                    borderWidth: 2
-                }
-            ]
-        }
-    });
-}
+/* --------------------------
+ End
+---------------------------*/
 </script>
-
 </body>
 </html>
